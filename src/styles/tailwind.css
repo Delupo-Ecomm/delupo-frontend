@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  font-family: "IBM Plex Sans", sans-serif;
+}
+
+.text-display {
+  font-family: "Space Grotesk", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.glass-panel {
+  background: linear-gradient(130deg, rgba(248, 245, 241, 0.95), rgba(240, 233, 225, 0.7));
+  border: 1px solid rgba(20, 21, 25, 0.08);
+}
+
+.pattern-grid {
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(31, 91, 122, 0.08) 0, rgba(31, 91, 122, 0.08) 2px, transparent 2px),
+    radial-gradient(circle at 80% 0%, rgba(200, 92, 59, 0.09) 0, rgba(200, 92, 59, 0.09) 3px, transparent 3px),
+    radial-gradient(circle at 0% 80%, rgba(45, 106, 79, 0.08) 0, rgba(45, 106, 79, 0.08) 3px, transparent 3px);
+  background-size: 220px 220px;
+}
+
+@keyframes floatIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reveal {
+  animation: floatIn 0.7s ease forwards;
+}
+
+.reveal.delay-1 {
+  animation-delay: 0.08s;
+}
+
+.reveal.delay-2 {
+  animation-delay: 0.16s;
+}
+
+.reveal.delay-3 {
+  animation-delay: 0.24s;
+}
