@@ -804,6 +804,111 @@ export default function App() {
               </Card>
             ) : (
               <div className="flex flex-col gap-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card className="flex flex-col gap-4" hover={false}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-ink-900">
+                        Pessoa Fisica (CPF)
+                      </span>
+                      <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-700">
+                        {formatNumber(customers.data?.byType?.pf?.totalCustomers ?? 0)} clientes
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs uppercase tracking-wider text-ink-500">
+                          Total Pedidos
+                        </span>
+                        <span className="text-2xl font-semibold text-ink-900">
+                          {formatNumber(customers.data?.byType?.pf?.totalOrders ?? 0)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs uppercase tracking-wider text-ink-500">
+                          Receita Total
+                        </span>
+                        <span className="text-2xl font-semibold text-ink-900">
+                          {formatCurrency((customers.data?.byType?.pf?.totalRevenue ?? 0) / 100)}
+                        </span>
+                      </div>
+                      <div className="col-span-2 flex flex-col gap-1 rounded-lg bg-sky-50 p-4 border-2 border-sky-200">
+                        <span className="text-xs uppercase tracking-wider text-sky-700 font-medium">
+                          Ticket Medio PF
+                        </span>
+                        <span className="text-3xl font-bold text-sky-600">
+                          {formatCurrency((customers.data?.byType?.pf?.avgOrderValue ?? 0) / 100)}
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
+                  <Card className="flex flex-col gap-4" hover={false}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-ink-900">
+                        Pessoa Juridica (CNPJ)
+                      </span>
+                      <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+                        {formatNumber(customers.data?.byType?.pj?.totalCustomers ?? 0)} clientes
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs uppercase tracking-wider text-ink-500">
+                          Total Pedidos
+                        </span>
+                        <span className="text-2xl font-semibold text-ink-900">
+                          {formatNumber(customers.data?.byType?.pj?.totalOrders ?? 0)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs uppercase tracking-wider text-ink-500">
+                          Receita Total
+                        </span>
+                        <span className="text-2xl font-semibold text-ink-900">
+                          {formatCurrency((customers.data?.byType?.pj?.totalRevenue ?? 0) / 100)}
+                        </span>
+                      </div>
+                      <div className="col-span-2 flex flex-col gap-1 rounded-lg bg-emerald-50 p-4 border-2 border-emerald-200">
+                        <span className="text-xs uppercase tracking-wider text-emerald-700 font-medium">
+                          Ticket Medio PJ
+                        </span>
+                        <span className="text-3xl font-bold text-emerald-600">
+                          {formatCurrency((customers.data?.byType?.pj?.avgOrderValue ?? 0) / 100)}
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+                {(() => {
+                  const pfAvg = (customers.data?.byType?.pf?.avgOrderValue ?? 0) / 100;
+                  const pjAvg = (customers.data?.byType?.pj?.avgOrderValue ?? 0) / 100;
+                  const diff = pjAvg - pfAvg;
+                  const percentDiff = pfAvg > 0 ? ((diff / pfAvg) * 100) : 0;
+                  const isHigher = diff > 0;
+                  
+                  return diff !== 0 ? (
+                    <Card className="flex items-center justify-between p-6 bg-gradient-to-r from-slate-50 to-slate-100" hover={false}>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm text-ink-600">
+                          Diferenca entre tickets medios
+                        </span>
+                        <span className="text-lg font-medium text-ink-900">
+                          Clientes PJ gastam em media{" "}
+                          <span className={`font-bold ${isHigher ? "text-emerald-600" : "text-sky-600"}`}>
+                            {formatCurrency(Math.abs(diff))}
+                          </span>
+                          {" "}
+                          {isHigher ? "a mais" : "a menos"} que clientes PF
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`text-4xl font-bold ${isHigher ? "text-emerald-600" : "text-sky-600"}`}>
+                          {isHigher ? "+" : ""}{percentDiff.toFixed(1)}%
+                        </span>
+                        <span className="text-xs text-ink-500">diferenca percentual</span>
+                      </div>
+                    </Card>
+                  ) : null;
+                })()}
                 <DataTable
                   title="Clientes que mais gastaram"
                   rows={topCustomers}
