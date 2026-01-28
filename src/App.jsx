@@ -16,6 +16,7 @@ import Card from "./components/Card.jsx";
 import DataTable from "./components/DataTable.jsx";
 import {
   useCohort,
+  useCoupons,
   useCustomers,
   useNewVsReturning,
   useOrders,
@@ -154,6 +155,7 @@ export default function App() {
   const [draftNewSalesTarget, setDraftNewSalesTarget] = useState(0.2);
   const [draftReturningTarget, setDraftReturningTarget] = useState(0.2);
   const [expandedSources, setExpandedSources] = useState([]);
+  const [expandedCoupons, setExpandedCoupons] = useState([]);
 
   const isOrdersDash = activeDash === "orders";
   const isClientsDash = activeDash === "clients";
@@ -211,6 +213,7 @@ export default function App() {
   );
   const orders = useOrders(orderQueryFilters, { enabled: isOrdersDash });
   const utm = useUtm({ ...orderQueryFilters, all: "true" }, { enabled: isOrdersDash });
+  const coupons = useCoupons({ ...orderQueryFilters, all: "true" }, { enabled: isOrdersDash });
   const customers = useCustomers(
     { ...clientBaseFilters, limit: 10 },
     { enabled: isClientsDash }
@@ -276,6 +279,24 @@ export default function App() {
       share: totalRevenue ? group.revenue / totalRevenue : 0
     }));
   }, [utm.data]);
+  
+  const couponGroups = useMemo(() => {
+    const items = coupons.data?.items;
+    if (!Array.isArray(items)) return [];
+    const groups = items
+      .map((item) => ({
+        code: item.couponCode || "(sem cupom)",
+        orders: item.orders ?? 0,
+        revenue: (item.revenue ?? 0) / 100
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+    const totalRevenue = groups.reduce((sum, group) => sum + group.revenue, 0);
+    return groups.map((group) => ({
+      ...group,
+      share: totalRevenue ? group.revenue / totalRevenue : 0
+    }));
+  }, [coupons.data]);
+  
   const topCustomers = useMemo(() => {
     const customersList = customers.data?.topCustomers;
     if (!Array.isArray(customersList)) return [];
@@ -853,6 +874,68 @@ export default function App() {
                             </Fragment>
                           );
                         })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+
+              <Card className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg text-display text-ink-900">Cupons</h3>
+                  {coupons.isFetching ? (
+                    <span className="text-xs uppercase tracking-[0.2em] text-ink-500">
+                      Atualizando
+                    </span>
+                  ) : null}
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-ink-100 text-left text-xs uppercase tracking-[0.2em] text-ink-500">
+                        <th className="py-2 pr-4">Cupom</th>
+                        <th className="py-2 pr-4">Pedidos</th>
+                        <th className="py-2 pr-4">Receita</th>
+                        <th className="py-2 pr-4">%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coupons.isLoading ? (
+                        <tr>
+                          <td colSpan={4} className="py-6 text-center text-ink-500">
+                            Carregando dados...
+                          </td>
+                        </tr>
+                      ) : coupons.isError ? (
+                        <tr>
+                          <td colSpan={4} className="py-6 text-center text-ember-500">
+                            Nao foi possivel carregar os dados.
+                          </td>
+                        </tr>
+                      ) : couponGroups.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="py-6 text-center text-ink-500">
+                            Nenhum dado encontrado para o periodo.
+                          </td>
+                        </tr>
+                      ) : (
+                        couponGroups.map((coupon) => (
+                          <tr key={coupon.code} className="border-b border-ink-100">
+                            <td className="py-3 pr-4 text-ink-900">
+                              {coupon.code}
+                            </td>
+                            <td className="py-3 pr-4 text-ink-700">
+                              {formatNumber(coupon.orders)}
+                            </td>
+                            <td className="py-3 pr-4 text-ink-700">
+                              {formatCurrency(coupon.revenue)}
+                            </td>
+                            <td className="py-3 pr-4 text-ink-700">
+                              {(coupon.share * 100).toFixed(1)}%
+                            </td>
+                          </tr>
+                        ))
                       )}
                     </tbody>
                   </table>

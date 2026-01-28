@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   getCohort,
+  getCoupons,
   getCustomers,
   getNewVsReturning,
   getOrders,
   getProducts,
+  getPromotions,
   getRetention,
   getSummary,
   getUtm
@@ -28,6 +30,20 @@ export const useUtm = (filters, options = {}) =>
   useQuery({
     queryKey: ["utm", filters],
     queryFn: () => getUtm(filters),
+    ...options
+  });
+
+export const useCoupons = (filters, options = {}) =>
+  useQuery({
+    queryKey: ["coupons", filters],
+    queryFn: () => getCoupons(filters),
+    ...options
+  });
+
+export const usePromotions = (filters, options = {}) =>
+  useQuery({
+    queryKey: ["promotions", filters],
+    queryFn: () => getPromotions(filters),
     ...options
   });
 

@@ -29,6 +29,10 @@ export const getCustomers = (filters) => fetchJson("/metrics/customers", filters
 
 export const getUtm = (filters) => fetchJson("/metrics/utm", filters);
 
+export const getCoupons = (filters) => fetchJson("/metrics/coupons", filters);
+
+export const getPromotions = (filters) => fetchJson("/metrics/promotions", filters);
+
 export const getShipping = (filters) => fetchJson("/metrics/shipping", filters);
 
 export const getPayments = (filters) => fetchJson("/metrics/payments", filters);
