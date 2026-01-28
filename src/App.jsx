@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
-import { format, subDays, subMonths } from "date-fns";
+import { format, subDays, subMonths, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, parseISO, startOfWeek, startOfMonth } from "date-fns";
 import {
   Area,
   AreaChart,
@@ -48,7 +48,7 @@ const normalizeSeries = (payload) => {
       if (Array.isArray(entry)) {
         return { date: entry[0], value: Number(entry[1]) };
       }
-      const date = entry.date || entry.day || entry.period || entry.createdAt;
+      const date = entry.date || entry.day || entry.week || entry.month || entry.period || entry.createdAt;
       const moneyKeys = ["revenue", "amount", "total", "sales"];
       const moneyKey = moneyKeys.find((key) => entry[key] !== undefined);
       const value =
@@ -78,10 +78,50 @@ const detectValueFormatter = (payload) => {
   const looksLikeMoney = keys.some((key) =>
     ["revenue", "amount", "total", "sales"].includes(key)
   );
+  
+  // Determinar o período com base no groupBy
+  const groupBy = payload?.groupBy || "day";
+  const periodLabel = groupBy === "week" ? "semanal" : groupBy === "month" ? "mensal" : "diaria";
+  
   return {
-    label: looksLikeMoney ? "Receita diaria" : "Pedidos diarios",
+    label: looksLikeMoney ? `Receita ${periodLabel}` : `Pedidos ${periodLabel}`,
     format: looksLikeMoney ? formatCurrency : formatNumber
   };
+};
+
+const fillMissingDates = (series, startDate, endDate, groupBy = "day") => {
+  if (!series || series.length === 0) return [];
+  if (!startDate || !endDate) return series;
+
+  try {
+    const start = parseISO(startDate);
+    const end = parseISO(endDate);
+    
+    let allPeriods = [];
+    
+    if (groupBy === "week") {
+      allPeriods = eachWeekOfInterval({ start, end }, { weekStartsOn: 1 }).map(date => 
+        format(startOfWeek(date, { weekStartsOn: 1 }), "yyyy-MM-dd")
+      );
+    } else if (groupBy === "month") {
+      allPeriods = eachMonthOfInterval({ start, end }).map(date => 
+        format(startOfMonth(date), "yyyy-MM-dd")
+      );
+    } else {
+      allPeriods = eachDayOfInterval({ start, end }).map(date => 
+        format(date, "yyyy-MM-dd")
+      );
+    }
+    
+    const dataMap = new Map(series.map(item => [item.date, item]));
+    
+    return allPeriods.map(period => 
+      dataMap.get(period) || { date: period, value: 0 }
+    );
+  } catch (error) {
+    console.error("Error filling missing dates:", error);
+    return series;
+  }
 };
 
 export default function App() {
@@ -89,7 +129,9 @@ export default function App() {
   const [orderFilters, setOrderFilters] = useState({
     start: format(subDays(new Date(), 30), "yyyy-MM-dd"),
     end: format(new Date(), "yyyy-MM-dd"),
-    status: ""
+    status: "",
+    groupBy: "day",
+    utmSource: ""
   });
   const [clientFilters, setClientFilters] = useState({
     start: format(subMonths(new Date(), 3), "yyyy-MM-dd"),
@@ -128,9 +170,11 @@ export default function App() {
   const orderQueryFilters = useMemo(
     () => ({
       ...orderBaseFilters,
-      status: orderFilters.status
+      status: orderFilters.status,
+      groupBy: orderFilters.groupBy,
+      utmSource: orderFilters.utmSource
     }),
-    [orderBaseFilters, orderFilters.status]
+    [orderBaseFilters, orderFilters.status, orderFilters.groupBy, orderFilters.utmSource]
   );
   const clientBaseFilters = useMemo(
     () => ({
@@ -184,7 +228,17 @@ export default function App() {
   const newVsReturning = useNewVsReturning(retentionBaseFilters, {
     enabled: isRetentionDash
   });
-  const series = normalizeSeries(orders.data);
+  
+  const rawSeries = normalizeSeries(orders.data);
+  const series = useMemo(() => {
+    return fillMissingDates(
+      rawSeries, 
+      orderFilters.start, 
+      orderFilters.end, 
+      orderFilters.groupBy || "day"
+    );
+  }, [rawSeries, orderFilters.start, orderFilters.end, orderFilters.groupBy]);
+  
   const valueMeta = detectValueFormatter(orders.data);
   const utmGroups = useMemo(() => {
     const items = utm.data?.items;
@@ -534,7 +588,10 @@ export default function App() {
               </p>
             </div>
             {isOrdersDash ? (
-              <FiltersBar filters={orderFilters} onChange={setOrderFilters} />
+              <FiltersBar 
+                filters={orderFilters} 
+                onChange={setOrderFilters}
+              />
             ) : isClientsDash ? (
               <FiltersBar
                 filters={clientFilters}
@@ -600,11 +657,33 @@ export default function App() {
                 title={valueMeta.label}
                 subtitle={`Periodo: ${orderFilters.start} ate ${orderFilters.end}`}
                 right={
-                  orders.isFetching ? (
-                    <span className="text-xs uppercase tracking-[0.2em] text-ink-500">
-                      Atualizando
-                    </span>
-                  ) : null
+                  <div className="flex items-center gap-4">
+                    {orders.isFetching && (
+                      <span className="text-xs uppercase tracking-[0.2em] text-ink-500">
+                        Atualizando
+                      </span>
+                    )}
+                    <div className="flex gap-2">
+                      {["day", "week", "month"].map((period) => {
+                        const isActive = (orderFilters.groupBy || "day") === period;
+                        const label = period === "day" ? "Dia" : period === "week" ? "Semana" : "Mês";
+                        return (
+                          <button
+                            key={period}
+                            type="button"
+                            className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
+                              isActive
+                                ? "border-ink-900 bg-ink-900 text-sand-50"
+                                : "border-ink-100 bg-white text-ink-600 hover:border-ink-200 hover:text-ink-900"
+                            }`}
+                            onClick={() => setOrderFilters({ ...orderFilters, groupBy: period })}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 }
               >
                 {orders.isLoading ? (
@@ -644,41 +723,7 @@ export default function App() {
                   </ResponsiveContainer>
                 )}
               </ChartCard>
-              <Card className="flex flex-col gap-3">
-                <span className="text-xs uppercase tracking-[0.2em] text-ink-500">
-                  UTM sources no periodo
-                </span>
-                {utm.isLoading ? (
-                  <span className="text-sm text-ink-500">Carregando fontes...</span>
-                ) : utm.isError ? (
-                  <span className="text-sm text-ember-500">
-                    Nao foi possivel carregar as fontes.
-                  </span>
-                ) : utmGroups.length === 0 ? (
-                  <span className="text-sm text-ink-500">
-                    Nenhuma UTM encontrada para o periodo.
-                  </span>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {utmGroups.map((group) => (
-                      <span
-                        key={group.source}
-                        className="rounded-full border border-ink-100 bg-white px-3 py-1 text-xs uppercase tracking-[0.2em] text-ink-600"
-                      >
-                        {group.source}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </section>
 
-            <section className="flex flex-col gap-6">
-              <SectionHeader
-                eyebrow="UTM"
-                title="Fontes do periodo"
-                description="Agrupado apenas por UTM source no periodo selecionado."
-              />
               <Card className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg text-display text-ink-900">UTM por source</h3>
@@ -688,6 +733,38 @@ export default function App() {
                     </span>
                   ) : null}
                 </div>
+                
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className={`rounded-full border px-4 py-2 text-xs uppercase tracking-[0.2em] transition ${
+                      !orderFilters.utmSource
+                        ? "border-ink-900 bg-ink-900 text-sand-50"
+                        : "border-ink-100 bg-white text-ink-600 hover:border-ink-200 hover:text-ink-900"
+                    }`}
+                    onClick={() => setOrderFilters({ ...orderFilters, utmSource: "" })}
+                  >
+                    Todos
+                  </button>
+                  {utmGroups.map((group) => {
+                    const isActive = orderFilters.utmSource === group.source;
+                    return (
+                      <button
+                        key={group.source}
+                        type="button"
+                        className={`rounded-full border px-4 py-2 text-xs uppercase tracking-[0.2em] transition ${
+                          isActive
+                            ? "border-sky-600 bg-sky-600 text-white"
+                            : "border-ink-100 bg-white text-ink-600 hover:border-sky-200 hover:text-sky-700"
+                        }`}
+                        onClick={() => setOrderFilters({ ...orderFilters, utmSource: group.source })}
+                      >
+                        {group.source}
+                      </button>
+                    );
+                  })}
+                </div>
+                
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
