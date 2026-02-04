@@ -11,10 +11,30 @@ const buildUrl = (path, params = {}) => {
 };
 
 export const fetchJson = async (path, params = {}) => {
-  const response = await fetch(buildUrl(path, params));
+  const token = localStorage.getItem('token');
+  
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(buildUrl(path, params), { headers });
+  
+  if (response.status === 401) {
+    // Token inválido ou expirado - redirecionar para login
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/';
+    throw new Error('Sessão expirada');
+  }
+  
   if (!response.ok) {
     throw new Error(`API error ${response.status}`);
   }
+  
   const data = await response.json();
   return data;
 };

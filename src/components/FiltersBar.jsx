@@ -1,13 +1,13 @@
 import { format } from "date-fns";
+import { useGlobalFilters } from "../contexts/FiltersContext.jsx";
 
 const today = new Date();
 
-export default function FiltersBar({ 
-  filters, 
-  onChange, 
-  showStatus = true
-}) {
-  const update = (key, value) => onChange({ ...filters, [key]: value });
+export default function FiltersBar() {
+  const { globalFilters, updateFilters } = useGlobalFilters();
+  
+  const update = (key, value) => updateFilters({ [key]: value });
+  
   const statusOptions = [
     { label: "Todos", value: "" },
     { label: "Faturados", value: "invoiced" }
@@ -22,7 +22,7 @@ export default function FiltersBar({
             <input
               type="date"
               className="rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm text-ink-800"
-              value={filters.start}
+              value={globalFilters.start}
               max={format(today, "yyyy-MM-dd")}
               onChange={(event) => update("start", event.target.value)}
             />
@@ -32,33 +32,31 @@ export default function FiltersBar({
             <input
               type="date"
               className="rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm text-ink-800"
-              value={filters.end}
+              value={globalFilters.end}
               max={format(today, "yyyy-MM-dd")}
               onChange={(event) => update("end", event.target.value)}
             />
           </label>
         </div>
-        {showStatus && (
-          <div className="flex flex-wrap items-center gap-2">
-            {statusOptions.map((option) => {
-              const isActive = filters.status === option.value;
-              return (
-                <button
-                  key={option.value || "all"}
-                  type="button"
-                  className={`rounded-full border px-4 py-2 text-xs uppercase tracking-[0.2em] transition ${
-                    isActive
-                      ? "border-ink-900 bg-ink-900 text-sand-50"
-                      : "border-ink-100 bg-white text-ink-600 hover:border-ink-200 hover:text-ink-900"
-                  }`}
-                  onClick={() => update("status", option.value)}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {statusOptions.map((option) => {
+            const isActive = globalFilters.status === option.value;
+            return (
+              <button
+                key={option.value || "all"}
+                type="button"
+                className={`rounded-full border px-4 py-2 text-xs uppercase tracking-[0.2em] transition ${
+                  isActive
+                    ? "border-ink-900 bg-ink-900 text-sand-50"
+                    : "border-ink-100 bg-white text-ink-600 hover:border-ink-200 hover:text-ink-900"
+                }`}
+                onClick={() => update("status", option.value)}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

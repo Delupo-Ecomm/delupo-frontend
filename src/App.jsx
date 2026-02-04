@@ -9,6 +9,9 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import { useAuth } from "./contexts/AuthContext.jsx";
+import { useGlobalFilters } from "./contexts/FiltersContext.jsx";
+import LoginPage from "./pages/LoginPage.jsx";
 import FiltersBar from "./components/FiltersBar.jsx";
 import SectionHeader from "./components/SectionHeader.jsx";
 import ChartCard from "./components/ChartCard.jsx";
@@ -125,30 +128,34 @@ const fillMissingDates = (series, startDate, endDate, groupBy = "day") => {
   }
 };
 
-export default function App() {
+function App() {
+  const { user, loading, logout } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        Carregando...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  return <Dashboard logout={logout} />;
+}
+
+function Dashboard({ logout }) {
+  const { globalFilters } = useGlobalFilters();
   const [activeDash, setActiveDash] = useState("orders");
-  const [orderFilters, setOrderFilters] = useState({
-    start: format(subDays(new Date(), 30), "yyyy-MM-dd"),
-    end: format(new Date(), "yyyy-MM-dd"),
-    status: "",
-    groupBy: "day",
-    utmSource: ""
-  });
-  const [clientFilters, setClientFilters] = useState({
-    start: format(subMonths(new Date(), 3), "yyyy-MM-dd"),
-    end: format(new Date(), "yyyy-MM-dd"),
-    status: ""
-  });
-  const [productFilters, setProductFilters] = useState({
-    start: format(subMonths(new Date(), 3), "yyyy-MM-dd"),
-    end: format(new Date(), "yyyy-MM-dd"),
-    status: ""
-  });
-  const [retentionFilters, setRetentionFilters] = useState({
-    start: format(subMonths(new Date(), 6), "yyyy-MM-dd"),
-    end: format(new Date(), "yyyy-MM-dd"),
-    status: ""
-  });
+  const [groupBy, setGroupBy] = useState("day");
+  const [utmSource, setUtmSource] = useState("");
   const [newSalesTarget, setNewSalesTarget] = useState(0.2);
   const [returningTarget, setReturningTarget] = useState(0.2);
   const [isEditingTargets, setIsEditingTargets] = useState(false);
@@ -161,74 +168,52 @@ export default function App() {
   const isClientsDash = activeDash === "clients";
   const isProductsDash = activeDash === "products";
   const isRetentionDash = activeDash === "ecommerce";
-  const orderBaseFilters = useMemo(
+  
+  const baseFilters = useMemo(
     () => ({
-      start: orderFilters.start,
-      end: orderFilters.end,
+      start: globalFilters.start,
+      end: globalFilters.end,
       timezone: "America/Sao_Paulo"
     }),
-    [orderFilters]
+    [globalFilters.start, globalFilters.end]
   );
+  
   const orderQueryFilters = useMemo(
     () => ({
-      ...orderBaseFilters,
-      status: orderFilters.status,
-      groupBy: orderFilters.groupBy,
-      utmSource: orderFilters.utmSource
+      ...baseFilters,
+      status: globalFilters.status,
+      groupBy: groupBy,
+      utmSource: utmSource
     }),
-    [orderBaseFilters, orderFilters.status, orderFilters.groupBy, orderFilters.utmSource]
-  );
-  const clientBaseFilters = useMemo(
-    () => ({
-      start: clientFilters.start,
-      end: clientFilters.end,
-      timezone: "America/Sao_Paulo"
-    }),
-    [clientFilters]
-  );
-  const productBaseFilters = useMemo(
-    () => ({
-      start: productFilters.start,
-      end: productFilters.end,
-      timezone: "America/Sao_Paulo"
-    }),
-    [productFilters]
-  );
-  const retentionBaseFilters = useMemo(
-    () => ({
-      start: retentionFilters.start,
-      end: retentionFilters.end,
-      timezone: "America/Sao_Paulo"
-    }),
-    [retentionFilters]
+    [baseFilters, globalFilters.status, groupBy, utmSource]
   );
 
   const summaryAll = useSummary(
-    { ...orderBaseFilters, status: "" },
+    { ...baseFilters, status: "" },
     { enabled: isOrdersDash }
   );
   const summaryInvoiced = useSummary(
-    { ...orderBaseFilters, status: "invoiced" },
+    { ...baseFilters, status: "invoiced" },
     { enabled: isOrdersDash }
   );
   const orders = useOrders(orderQueryFilters, { enabled: isOrdersDash });
   const utm = useUtm({ ...orderQueryFilters, all: "true" }, { enabled: isOrdersDash });
   const coupons = useCoupons({ ...orderQueryFilters, all: "true" }, { enabled: isOrdersDash });
   const customers = useCustomers(
-    { ...clientBaseFilters, limit: 10 },
+    { ...baseFilters, status: globalFilters.status, limit: 10 },
     { enabled: isClientsDash }
   );
   const productsByQuantity = useProducts(
-    { ...productBaseFilters, limit: 20, sort: "quantity" },
+    { ...baseFilters, status: globalFilters.status, limit: 20, sort: "quantity" },
     { enabled: isProductsDash }
   );
   const productsByRevenue = useProducts(
-    { ...productBaseFilters, limit: 20, sort: "revenue" },
+    { ...baseFilters, status: globalFilters.status, limit: 20, sort: "revenue" },
     { enabled: isProductsDash }
   );
-  const retention = useRetention(retentionBaseFilters, { enabled: isRetentionDash });
-  const cohort = useCohort(retentionBaseFilters, { enabled: isRetentionDash });
-  const newVsReturning = useNewVsReturning(retentionBaseFilters, {
+  const retention = useRetention({ ...baseFilters, status: globalFilters.status }, { enabled: isRetentionDash });
+  const cohort = useCohort({ ...baseFilters, status: globalFilters.status }, { enabled: isRetentionDash });
+  const newVsReturning = useNewVsReturning({ ...baseFilters, status: globalFilters.status }, {
     enabled: isRetentionDash
   });
   
@@ -236,11 +221,11 @@ export default function App() {
   const series = useMemo(() => {
     return fillMissingDates(
       rawSeries, 
-      orderFilters.start, 
-      orderFilters.end, 
-      orderFilters.groupBy || "day"
+      globalFilters.start, 
+      globalFilters.end, 
+      groupBy || "day"
     );
-  }, [rawSeries, orderFilters.start, orderFilters.end, orderFilters.groupBy]);
+  }, [rawSeries, globalFilters.start, globalFilters.end, groupBy]);
   
   const valueMeta = detectValueFormatter(orders.data);
   const utmGroups = useMemo(() => {
@@ -563,8 +548,16 @@ export default function App() {
       <div className="pattern-grid">
         <header className="px-6 pt-8 pb-12 md:px-10">
           <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8">
-            <div>
+            <div className="flex justify-between items-start">
               <p className="text-xs uppercase tracking-[0.3em] text-ink-500">Delupo Stats</p>
+              <button
+                onClick={logout}
+                className="rounded-full border border-ink-100 bg-white px-4 py-2 text-xs uppercase tracking-[0.2em] text-ink-600 hover:border-ink-200 hover:text-ink-900 transition"
+              >
+                Sair
+              </button>
+            </div>
+            <div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {[
                   { id: "orders", label: "Orders Dash" },
@@ -608,24 +601,7 @@ export default function App() {
                       : "Retencao calculada entre periodos consecutivos de compra."}
               </p>
             </div>
-            {isOrdersDash ? (
-              <FiltersBar 
-                filters={orderFilters} 
-                onChange={setOrderFilters}
-              />
-            ) : isClientsDash ? (
-              <FiltersBar
-                filters={clientFilters}
-                onChange={setClientFilters}
-                showStatus={false}
-              />
-            ) : (
-              <FiltersBar
-                filters={isProductsDash ? productFilters : retentionFilters}
-                onChange={isProductsDash ? setProductFilters : setRetentionFilters}
-                showStatus={false}
-              />
-            )}
+            <FiltersBar />
           </div>
         </header>
       </div>
@@ -676,7 +652,7 @@ export default function App() {
 
               <ChartCard
                 title={valueMeta.label}
-                subtitle={`Periodo: ${orderFilters.start} ate ${orderFilters.end}`}
+                subtitle={`Periodo: ${globalFilters.start} ate ${globalFilters.end}`}
                 right={
                   <div className="flex items-center gap-4">
                     {orders.isFetching && (
@@ -686,7 +662,7 @@ export default function App() {
                     )}
                     <div className="flex gap-2">
                       {["day", "week", "month"].map((period) => {
-                        const isActive = (orderFilters.groupBy || "day") === period;
+                        const isActive = (groupBy || "day") === period;
                         const label = period === "day" ? "Dia" : period === "week" ? "Semana" : "Mês";
                         return (
                           <button
@@ -697,7 +673,7 @@ export default function App() {
                                 ? "border-ink-900 bg-ink-900 text-sand-50"
                                 : "border-ink-100 bg-white text-ink-600 hover:border-ink-200 hover:text-ink-900"
                             }`}
-                            onClick={() => setOrderFilters({ ...orderFilters, groupBy: period })}
+                            onClick={() => setGroupBy(period)}
                           >
                             {label}
                           </button>
@@ -759,16 +735,16 @@ export default function App() {
                   <button
                     type="button"
                     className={`rounded-full border px-4 py-2 text-xs uppercase tracking-[0.2em] transition ${
-                      !orderFilters.utmSource
+                      !utmSource
                         ? "border-ink-900 bg-ink-900 text-sand-50"
                         : "border-ink-100 bg-white text-ink-600 hover:border-ink-200 hover:text-ink-900"
                     }`}
-                    onClick={() => setOrderFilters({ ...orderFilters, utmSource: "" })}
+                    onClick={() => setUtmSource("")}
                   >
                     Todos
                   </button>
                   {utmGroups.map((group) => {
-                    const isActive = orderFilters.utmSource === group.source;
+                    const isActive = utmSource === group.source;
                     return (
                       <button
                         key={group.source}
@@ -778,7 +754,7 @@ export default function App() {
                             ? "border-sky-600 bg-sky-600 text-white"
                             : "border-ink-100 bg-white text-ink-600 hover:border-sky-200 hover:text-sky-700"
                         }`}
-                        onClick={() => setOrderFilters({ ...orderFilters, utmSource: group.source })}
+                        onClick={() => setUtmSource(group.source)}
                       >
                         {group.source}
                       </button>
@@ -948,7 +924,7 @@ export default function App() {
             <SectionHeader
               eyebrow="Clientes"
               title="Top clientes por receita"
-              description={`Periodo: ${clientFilters.start} ate ${clientFilters.end}`}
+              description={`Periodo: ${globalFilters.start} ate ${globalFilters.end}`}
             />
             {customers.isLoading ? (
               <Card className="flex items-center justify-center py-12 text-sm text-ink-500">
@@ -1089,7 +1065,7 @@ export default function App() {
             <SectionHeader
               eyebrow="Produtos"
               title="Top produtos"
-              description={`Periodo: ${productFilters.start} ate ${productFilters.end}`}
+              description={`Periodo: ${globalFilters.start} ate ${globalFilters.end}`}
             />
             {productsByQuantity.isLoading || productsByRevenue.isLoading ? (
               <Card className="flex items-center justify-center py-12 text-sm text-ink-500">
@@ -1125,7 +1101,7 @@ export default function App() {
             <SectionHeader
               eyebrow="Ecommerce"
               title="Retencao por periodo"
-              description={`Periodo: ${retentionFilters.start} ate ${retentionFilters.end}`}
+              description={`Periodo: ${globalFilters.start} ate ${globalFilters.end}`}
             />
             {retention.isLoading ? (
               <Card className="flex items-center justify-center py-12 text-sm text-ink-500">
@@ -1361,3 +1337,5 @@ export default function App() {
     </div>
   );
 }
+
+export default App;

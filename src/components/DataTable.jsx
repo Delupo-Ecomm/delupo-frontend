@@ -35,7 +35,7 @@ export default function DataTable({ title, rows, columns, filename }) {
               <tr key={`${row[columns[0].key]}-${index}`} className="border-b border-ink-100">
                 {columns.map((column) => (
                   <td key={column.key} className="py-3 pr-4 text-ink-700">
-                    {column.render ? column.render(row[column.key], row) : row[column.key]}
+                    {column.render ? column.render(row[column.key], row, index, rows) : row[column.key]}
                   </td>
                 ))}
               </tr>
